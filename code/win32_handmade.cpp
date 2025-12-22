@@ -17,30 +17,36 @@ typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
+
+struct win32_offscreen_buffer
+{ BITMAPINFO Info;
+    void *Memory;
+    int Width;
+    int Height;
+    int Pitch;
+};
+
 // TODO(casey): This is a global for now.
+// in general, do not want to have globals. hard to know where and when they are being accessed
+// okay, so you can bump the global  and see what functions generate compile errors...but a cleaner way is grouping/bundling into something smart
+global_variable win32_offscreen_buffer GlobalBackbuffer;
 global_variable bool Running;
 
-global_variable BITMAPINFO BitmapInfo;
-global_variable void *BitmapMemory; //later we will cast this to more than one type
-global_variable int BitmapWidth;
-global_variable int BitmapHeight;
-global_variable int BytesPerPixel = 4;
-global_variable int XOffset = 0;
-global_variable int YOffset = 0;
+internal void RenderWeirdGradient(win32_offscreen_buffer Buffer, int Xoffset, int Yoffset){
+    int Pitch = Buffer.Width*4;
+    uint8 *Row = (uint8 *)Buffer.Memory; 
 
-internal void RenderWeirdGradient(int Xoffset, int Yoffset){
-    int Pitch = BitmapWidth*4;
-    uint8 *Row = (uint8 *)BitmapMemory; 
-
-    int Width = BitmapWidth;
-    int Height = BitmapHeight;
+    //let's see what the optimizer does (casey)
+    
+    int Width = Buffer.Width;
+    int Height = Buffer.Height;
     for(int Y = 0;
-        Y < BitmapHeight;
+        Y < Buffer.Height;
         ++Y)
         {
             uint8 *Pixel = (uint8 *)Row;
             for (int X = 0;
-            X < BitmapWidth;
+            X < Buffer.Width;
             ++X)
             {   /* pixel in memory: 
                 00 00 00 00 
@@ -58,48 +64,47 @@ internal void RenderWeirdGradient(int Xoffset, int Yoffset){
                Pixel++;
                      
             }
-            Row += Pitch;
+            Row += Buffer.Pitch;
         }
 
 }
 internal void
-Win32ResizeDIBSection(int Width, int Height)
+Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
 {
     // TODO(casey): Bulletproof this.
     // Maybe don't free first, free after, then free first if that fails.
-if(BitmapMemory)
+if(Buffer->Memory)
 {
-    VirtualFree(BitmapMemory, 0, MEM_RELEASE); //0-> just the size we allocated before
+    VirtualFree(Buffer->Memory, 0, MEM_RELEASE); //0-> just the size we allocated before
     // one way we could catch bugs of pointers to stale memory is to do VirtualProtect
     // to no access here, so that if we try to use it again we will get a page fault.
 }
 
-    BitmapInfo.bmiHeader.biSize = sizeof(BitmapInfo.bmiHeader); //cool. here we are going to pass biSize so that we can do pointer arithmetic under the hood in CreateDIBSection
-    BitmapInfo.bmiHeader.biWidth = Width;
-    BitmapInfo.bmiHeader.biHeight = -Height; // define DIB as top-down
-    BitmapInfo.bmiHeader.biPlanes = 1;
-    BitmapInfo.bmiHeader.biBitCount = 32; //R, G, B, each 8 bits, and a padding byte.
-    BitmapInfo.bmiHeader.biCompression = BI_RGB;
+    Buffer->Width = Width;
+    Buffer->Height = Height;
+    int BytesPerPixel = 4;
+    Buffer->Info.bmiHeader.biSize = sizeof(Buffer->Info.bmiHeader); //cool. here we are going to pass biSize so that we can do pointer arithmetic under the hood in CreateDIBSection
+    Buffer->Info.bmiHeader.biWidth = Buffer->Width;
+    Buffer->Info.bmiHeader.biHeight = -Buffer->Height; // define DIB as top-down
+    Buffer->Info.bmiHeader.biPlanes = 1;
+    Buffer->Info.bmiHeader.biBitCount = 32; //R, G, B, each 8 bits, and a padding byte.
+    Buffer->Info.bmiHeader.biCompression = BI_RGB;
 
     // TODO(casey): Based on ssylvan's suggestion, maybe we can just
     // allocate this ourselves?
     // thanks to chris hecker of spy party fame, for clarifying the deal with stretchDIBits and BitBlt!
     // no more DC needed for us. 
 
-    BitmapWidth = Width;
-    BitmapHeight = Height;
     // now set the bitmap memory, it was a pointer.
-    int BytesPerPixel = 4;
-    int BitmapMemorySize = (BytesPerPixel * BitmapWidth * BitmapHeight);
+    int BitmapMemorySize = (Buffer->Width * Buffer->Height)*BytesPerPixel;
     // here we use virtualalloc, a bit more raw, returns pages. so 4096 byte aligned. 12 bits.
-    BitmapMemory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
-
-    RenderWeirdGradient(XOffset,YOffset);
+    Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
+    Buffer->Pitch = Width*BytesPerPixel;
         
 }
 
 internal void
-Win32UpdateWindow(HDC DeviceContext, RECT *WindowRect,  int X, int Y, int Width, int Height)
+Win32DisplayBufferInWindow(HDC DeviceContext, RECT *WindowRect,  win32_offscreen_buffer *Buffer, int X, int Y, int Width, int Height)
 {
     /* 
      convention for storing something 2D in something that is 1D. 
@@ -112,13 +117,14 @@ Win32UpdateWindow(HDC DeviceContext, RECT *WindowRect,  int X, int Y, int Width,
     int WindowWidth = WindowRect->right - WindowRect->left;
     int WindowHeight = WindowRect->bottom - WindowRect->top;
     //DIB->DeviceIndependentBitmap
+    // TODO: (casey says): aspect ratio correction
     StretchDIBits(DeviceContext,
                   /*X, Y, Width, Height,
                   X, Y, Width, Height,*/
-                  0,0, BitmapWidth,BitmapHeight,
-                  0,0, WindowWidth, WindowHeight,
-                  BitmapMemory,
-                  &BitmapInfo,
+                  0,0, WindowWidth,WindowHeight,
+                  0,0, Buffer->Width,Buffer->Height,
+                  Buffer->Memory,
+                  &Buffer->Info,
                   DIB_RGB_COLORS, SRCCOPY);
                   // historical; bitblt() used to be faster on older windows versions. 
                   // now stretchis probably okay for now;
@@ -141,7 +147,7 @@ Win32MainWindowCallback(HWND Window,
             GetClientRect(Window, &ClientRect);
             int Width = ClientRect.right - ClientRect.left;
             int Height = ClientRect.bottom - ClientRect.top;
-            Win32ResizeDIBSection(Width, Height);
+            Win32ResizeDIBSection(&GlobalBackbuffer, Width, Height);
         } break;
 
         case WM_CLOSE:
@@ -172,7 +178,7 @@ Win32MainWindowCallback(HWND Window,
             RECT ClientRect;
             GetClientRect(Window, &ClientRect);
 
-            Win32UpdateWindow(DeviceContext, &ClientRect, X, Y, Width, Height);
+            Win32DisplayBufferInWindow(DeviceContext, &ClientRect, &GlobalBackbuffer, X, Y, Width, Height);
             EndPaint(Window, &Paint);
         } break;
 
@@ -193,8 +199,10 @@ WinMain(HINSTANCE Instance,
         int ShowCode)
 {
     WNDCLASS WindowClass = {};
-    
+    // overflow the stack!
+    uint8 BigOldBlockOfMemory[2*1024*1024] = {};
     // TODO(casey): Check if HREDRAW/VREDRAW/OWNDC still matter
+    WindowClass.style = CS_HREDRAW|CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
     WindowClass.hInstance = Instance;
 //    WindowClass.hIcon;
@@ -218,6 +226,9 @@ WinMain(HINSTANCE Instance,
                 0);
         if(Window)
         {
+            HDC DeviceContext = GetDC(Window);
+            int XOffset = 0;
+            int YOffset = 0;
             Running = true;
             while(Running)
             {
@@ -232,23 +243,15 @@ WinMain(HINSTANCE Instance,
                     DispatchMessageA(&Message);
                 
                 }
-                RenderWeirdGradient(XOffset, YOffset);
-                XOffset++;
-                YOffset++;
-                if(XOffset > BitmapWidth){
-                    XOffset = 0;
-                    
-                    if(YOffset > BitmapHeight){
-                        YOffset = 0;
-                    }
-                }
-                HDC DeviceContext = GetDC(Window);
+                RenderWeirdGradient(GlobalBackbuffer, XOffset, YOffset);
                 RECT ClientRect;
                 GetClientRect(Window, &ClientRect);
                 int WindowWidth = ClientRect.right - ClientRect.left;
                 int WindowHeight = ClientRect.bottom - ClientRect.top;
-                Win32UpdateWindow(DeviceContext, &ClientRect, 0, 0, WindowWidth, WindowHeight);
-                ReleaseDC(Window, DeviceContext);
+                Win32DisplayBufferInWindow(DeviceContext, &ClientRect, &GlobalBackbuffer,0, 0, WindowWidth, WindowHeight);
+
+                ++XOffset;
+                YOffset +=2;
             }
         }
         {
