@@ -18,6 +18,12 @@ typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
 
+struct win32_window_dimension
+{
+    int Width;
+    int Height;
+};
+
 struct win32_offscreen_buffer
 { BITMAPINFO Info;
     void *Memory;
@@ -30,8 +36,17 @@ struct win32_offscreen_buffer
 // in general, do not want to have globals. hard to know where and when they are being accessed
 // okay, so you can bump the global  and see what functions generate compile errors...but a cleaner way is grouping/bundling into something smart
 global_variable win32_offscreen_buffer GlobalBackbuffer;
-global_variable bool Running;
+global_variable bool GlobalRunning;
 
+win32_window_dimension Win32GetWindowDimension(HWND Window)
+{
+    win32_window_dimension Result;
+    RECT ClientRect;
+    GetClientRect(Window, &ClientRect);
+    Result.Width = (int)(ClientRect.right - ClientRect.left);
+    Result.Height = (int)(ClientRect.bottom - ClientRect.top);
+    return(Result);
+}
 internal void RenderWeirdGradient(win32_offscreen_buffer Buffer, int Xoffset, int Yoffset){
     int Pitch = Buffer.Width*4;
     uint8 *Row = (uint8 *)Buffer.Memory; 
@@ -44,7 +59,7 @@ internal void RenderWeirdGradient(win32_offscreen_buffer Buffer, int Xoffset, in
         Y < Buffer.Height;
         ++Y)
         {
-            uint8 *Pixel = (uint8 *)Row;
+            uint32 *Pixel = (uint32 *)Row;
             for (int X = 0;
             X < Buffer.Width;
             ++X)
@@ -54,13 +69,16 @@ internal void RenderWeirdGradient(win32_offscreen_buffer Buffer, int Xoffset, in
                 so 0x XXRRGGBB , looking at it as a vector:
                 for a fun day4, set the first two bytes to (uint8)(X/4) and (uint8)(Y/4)
                 */
-               *Pixel = (uint8)(X+Xoffset);
-               ++Pixel;
-               *Pixel = (uint8)(Y+Yoffset);
-               ++Pixel;
-               *Pixel = 0;
-               ++Pixel;
-               *Pixel = 0;
+               uint8 blue = (uint8)(X+Xoffset);
+               uint8 green = (uint8)(Y+Yoffset);
+               uint8 red = 0;
+               uint8 Xalpha = 0;
+               //*Pixel = (Xalpha << 24) | (red << 16) | (green << 8) | blue;
+               *Pixel = (green << 8) | blue;
+               
+            //    *Pixel = 0;
+               
+            //    *Pixel = 0;
                Pixel++;
                      
             }
@@ -68,6 +86,8 @@ internal void RenderWeirdGradient(win32_offscreen_buffer Buffer, int Xoffset, in
         }
 
 }
+
+//truly this is like create bitmap buffer, rather than a resize.
 internal void
 Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
 {
@@ -104,7 +124,7 @@ if(Buffer->Memory)
 }
 
 internal void
-Win32DisplayBufferInWindow(HDC DeviceContext, RECT *WindowRect,  win32_offscreen_buffer *Buffer, int X, int Y, int Width, int Height)
+Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight,  win32_offscreen_buffer *Buffer, int X, int Y, int Width, int Height)
 {
     /* 
      convention for storing something 2D in something that is 1D. 
@@ -114,8 +134,6 @@ Win32DisplayBufferInWindow(HDC DeviceContext, RECT *WindowRect,  win32_offscreen
         to get to the next row is called the pitch
         the stride is the thing you'd typically add to the end is the stride.
     */
-    int WindowWidth = WindowRect->right - WindowRect->left;
-    int WindowHeight = WindowRect->bottom - WindowRect->top;
     //DIB->DeviceIndependentBitmap
     // TODO: (casey says): aspect ratio correction
     StretchDIBits(DeviceContext,
@@ -126,6 +144,8 @@ Win32DisplayBufferInWindow(HDC DeviceContext, RECT *WindowRect,  win32_offscreen
                   Buffer->Memory,
                   &Buffer->Info,
                   DIB_RGB_COLORS, SRCCOPY);
+                  // DIB_RGB_COLORS: we are specifying colors directly
+                    // SRCCOPY: raster operation, just copy source directly to dest
                   // historical; bitblt() used to be faster on older windows versions. 
                   // now stretchis probably okay for now;
                   // we may want to use opengl and eventually write to
@@ -143,17 +163,13 @@ Win32MainWindowCallback(HWND Window,
     {
         case WM_SIZE:
         {
-            RECT ClientRect;
-            GetClientRect(Window, &ClientRect);
-            int Width = ClientRect.right - ClientRect.left;
-            int Height = ClientRect.bottom - ClientRect.top;
-            Win32ResizeDIBSection(&GlobalBackbuffer, Width, Height);
+            
         } break;
 
         case WM_CLOSE:
         {
             // TODO(casey): Handle this with a message to the user?
-            Running = false;
+            GlobalRunning = false;
         } break;
 
         case WM_ACTIVATEAPP:
@@ -164,7 +180,7 @@ Win32MainWindowCallback(HWND Window,
         case WM_DESTROY:
         {
             // TODO(casey): Handle this as an error - recreate window?
-            Running = false;
+            GlobalRunning = false;
         } break;
 
         case WM_PAINT:
@@ -177,8 +193,8 @@ Win32MainWindowCallback(HWND Window,
             int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
             RECT ClientRect;
             GetClientRect(Window, &ClientRect);
-
-            Win32DisplayBufferInWindow(DeviceContext, &ClientRect, &GlobalBackbuffer, X, Y, Width, Height);
+            win32_window_dimension Dimension = Win32GetWindowDimension(Window);
+            Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, &GlobalBackbuffer, X, Y, Width, Height);
             EndPaint(Window, &Paint);
         } break;
 
@@ -200,7 +216,12 @@ WinMain(HINSTANCE Instance,
 {
     WNDCLASS WindowClass = {};
     // overflow the stack!
-    uint8 BigOldBlockOfMemory[2*1024*1024] = {};
+    //uint8 BigOldBlockOfMemory[100*1024*1024] = {};
+    // BigOldBlockOfMemory[99*1024*1024] = 123;
+    // for (int i = 0; i < 100 * 1024 * 1024; i += 4096) {
+    //     BigOldBlockOfMemory[i] = 1;  // touch each page
+    // }
+    //Overflow(0);
     // TODO(casey): Check if HREDRAW/VREDRAW/OWNDC still matter
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
@@ -229,26 +250,27 @@ WinMain(HINSTANCE Instance,
             HDC DeviceContext = GetDC(Window);
             int XOffset = 0;
             int YOffset = 0;
-            Running = true;
-            while(Running)
+            GlobalRunning = true;
+            while(GlobalRunning)
             {
                 MSG Message;
                
                 while(PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
                 {
                     if(Message.wParam == WM_QUIT){
-                        Running = false;
+                        GlobalRunning = false;
                     }
                     TranslateMessage(&Message);
                     DispatchMessageA(&Message);
                 
-                }
-                RenderWeirdGradient(GlobalBackbuffer, XOffset, YOffset);
+                } 
                 RECT ClientRect;
                 GetClientRect(Window, &ClientRect);
                 int WindowWidth = ClientRect.right - ClientRect.left;
                 int WindowHeight = ClientRect.bottom - ClientRect.top;
-                Win32DisplayBufferInWindow(DeviceContext, &ClientRect, &GlobalBackbuffer,0, 0, WindowWidth, WindowHeight);
+                Win32ResizeDIBSection(&GlobalBackbuffer, WindowWidth, WindowHeight);
+                RenderWeirdGradient(GlobalBackbuffer, XOffset, YOffset);
+                Win32DisplayBufferInWindow(DeviceContext, WindowWidth, WindowHeight, &GlobalBackbuffer,0, 0, WindowWidth, WindowHeight);
 
                 ++XOffset;
                 YOffset +=2;
