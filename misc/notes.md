@@ -1,8 +1,14 @@
 notes
 
 ### 2025-12-23 Day 5
-very handy to remembrer the following. 
 
+watch chandler carruth lectures for optimizer compiling. 
+
+"aliasing" -> a cpu performance problem that occurs when you've had coincidences with the addresses in memory. 
+"pointer aliasing" -> a language problem. 
+
+
+#### win32 windows management: very handy to
 WNDCLASS WindowClass -> 
 
 In Windows, everything running is a 'Process'. 

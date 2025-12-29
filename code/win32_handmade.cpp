@@ -124,7 +124,7 @@ if(Buffer->Memory)
 }
 
 internal void
-Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight,  win32_offscreen_buffer *Buffer, int X, int Y, int Width, int Height)
+Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight,  win32_offscreen_buffer Buffer, int X, int Y, int Width, int Height)
 {
     /* 
      convention for storing something 2D in something that is 1D. 
@@ -140,9 +140,9 @@ Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight,
                   /*X, Y, Width, Height,
                   X, Y, Width, Height,*/
                   0,0, WindowWidth,WindowHeight,
-                  0,0, Buffer->Width,Buffer->Height,
-                  Buffer->Memory,
-                  &Buffer->Info,
+                  0,0, Buffer.Width,Buffer.Height,
+                  Buffer.Memory,
+                  &Buffer.Info,
                   DIB_RGB_COLORS, SRCCOPY);
                   // DIB_RGB_COLORS: we are specifying colors directly
                     // SRCCOPY: raster operation, just copy source directly to dest
@@ -194,7 +194,7 @@ Win32MainWindowCallback(HWND Window,
             RECT ClientRect;
             GetClientRect(Window, &ClientRect);
             win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-            Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, &GlobalBackbuffer, X, Y, Width, Height);
+            Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, GlobalBackbuffer, X, Y, Width, Height);
             EndPaint(Window, &Paint);
         } break;
 
@@ -270,7 +270,7 @@ WinMain(HINSTANCE Instance,
                 int WindowHeight = ClientRect.bottom - ClientRect.top;
                 Win32ResizeDIBSection(&GlobalBackbuffer, WindowWidth, WindowHeight);
                 RenderWeirdGradient(GlobalBackbuffer, XOffset, YOffset);
-                Win32DisplayBufferInWindow(DeviceContext, WindowWidth, WindowHeight, &GlobalBackbuffer,0, 0, WindowWidth, WindowHeight);
+                Win32DisplayBufferInWindow(DeviceContext, WindowWidth, WindowHeight, GlobalBackbuffer,0, 0, WindowWidth, WindowHeight);
 
                 ++XOffset;
                 YOffset +=2;
