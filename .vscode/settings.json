@@ -1,0 +1,9 @@
+{
+    "terminal.integrated.defaultProfile.windows": "Command Prompt",
+"terminal.integrated.profiles.windows": {
+    "Developer Command Prompt": {
+        "path": "cmd.exe",
+        "args": ["/k", "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\Common7\\Tools\\VsDevCmd.bat\""]
+    }
+}
+}

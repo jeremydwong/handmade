@@ -1,5 +1,15 @@
 notes
 
+### 2025-12-29 Day 6
+
+getting controller state. 
+all you do is use XInput, you get a structure, and you can loop. 
+
+#### Linking. the concept of loading windows functions yourself. 
+platform requirements : linking XInput.lib . this is somewhat a problem! we do not want to link directly to xinputlib maybe, because there are a lot of weird platform requirements. 
+- so can we get away with not launching the game if you don't have an external symbol problem. 
+
+Fix is: loading windows functions ourselves, and using a stub function if we do not have an xinput plugged in. 
 ### 2025-12-23 Day 5
 
 watch chandler carruth lectures for optimizer compiling. 
@@ -21,7 +31,6 @@ So, we define an lpfnWinProc 'Win32MainWindowCallback' that will handle all of t
 function handling 'close', 'destroy','paint' etc. 
 
 we have to give it a class name, which is a bit useless. 
-
 Interesting to know that we don't actually need to keep around the WindowClass variable. in our case we never leave this function so it never goes out of scope, but Windows actually snaps a copy. 
 
 ### 2025-12-19 Day 3

@@ -8,19 +8,25 @@
 
 #include <windows.h>
 #include <stdint.h>
+#include <Xinput.h>
 
-#define internal static 
-#define local_persist static 
-#define global_variable static
+#define internal static         // define file scope functions as internal
+#define local_persist static    // static means different things in different contexts. local_persist across calls.
+#define global_variable static  // genuine global variable; try to remove as much as possible.
 
 typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
 
+typedef int8_t int8;
+typedef int16_t int16;
+typedef int32_t int32;
+typedef int64_t int64;
+
 struct win32_window_dimension
 {
-    int Width;
+    int Width; 
     int Height;
 };
 
@@ -32,13 +38,44 @@ struct win32_offscreen_buffer
     int Pitch;
 };
 
+// NOTE(jer) XInputGetState.
+// XInput function types XInputGetState and XInputSetState
+#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
+typedef X_INPUT_GET_STATE(x_input_get_state);
+X_INPUT_GET_STATE(XInputGetStateStub)
+{ return 0;}
+global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
+#define XInputGetState XInputGetState_
+
+// XInputSetState
+#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
+typedef X_INPUT_SET_STATE(x_input_set_state);
+X_INPUT_SET_STATE(XInputSetStateStub)
+{ return 0;}
+global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
+#define XInputSetState  XInputSetState_
+
+internal void 
+Win32LoadXInput(void)
+{
+    HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
+    if (XInputLibrary) {
+        void *temp = GetProcAddress(XInputLibrary, "XInputGetState");
+        XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+        if(!XInputGetState) {XInputGetState = XInputGetStateStub;}
+        XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+        if(!XInputSetState) {XInputSetState = XInputSetStateStub;}
+    }
+    
+}
+
 // TODO(casey): This is a global for now.
 // in general, do not want to have globals. hard to know where and when they are being accessed
 // okay, so you can bump the global  and see what functions generate compile errors...but a cleaner way is grouping/bundling into something smart
 global_variable win32_offscreen_buffer GlobalBackbuffer;
 global_variable bool GlobalRunning;
 
-win32_window_dimension Win32GetWindowDimension(HWND Window)
+internal win32_window_dimension Win32GetWindowDimension(HWND Window)
 {
     win32_window_dimension Result;
     RECT ClientRect;
@@ -151,7 +188,7 @@ Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight,
                   // we may want to use opengl and eventually write to
 }
 
-LRESULT CALLBACK
+internal LRESULT CALLBACK
 Win32MainWindowCallback(HWND Window,
                         UINT Message,
                         WPARAM WParam,
@@ -213,15 +250,10 @@ WinMain(HINSTANCE Instance,
         HINSTANCE PrevInstance,
         LPSTR CommandLine,
         int ShowCode)
-{
+{   Win32LoadXInput();
+
     WNDCLASS WindowClass = {};
-    // overflow the stack!
-    //uint8 BigOldBlockOfMemory[100*1024*1024] = {};
-    // BigOldBlockOfMemory[99*1024*1024] = 123;
-    // for (int i = 0; i < 100 * 1024 * 1024; i += 4096) {
-    //     BigOldBlockOfMemory[i] = 1;  // touch each page
-    // }
-    //Overflow(0);
+    
     // TODO(casey): Check if HREDRAW/VREDRAW/OWNDC still matter
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
@@ -264,13 +296,48 @@ WinMain(HINSTANCE Instance,
                     DispatchMessageA(&Message);
                 
                 } 
-                RECT ClientRect;
-                GetClientRect(Window, &ClientRect);
-                int WindowWidth = ClientRect.right - ClientRect.left;
-                int WindowHeight = ClientRect.bottom - ClientRect.top;
-                Win32ResizeDIBSection(&GlobalBackbuffer, WindowWidth, WindowHeight);
+                for (DWORD ControllerIndex = 0;
+                ControllerIndex < XUSER_MAX_COUNT;
+                ++ControllerIndex)
+            {   
+                XINPUT_STATE ControllerState;
+                if(XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
+                {
+                    // this controller is plugged in!
+                    //todo(jer): see if controllerstate.dwpsacketnumbrer increments too rapidly
+                    // which would be a sign that we're not polling it fast enough
+                    XINPUT_GAMEPAD *Pad = &ControllerState.Gamepad;
+                    bool Up = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
+                    bool Down = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
+                    bool Left = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
+                    bool Right = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
+                    bool Back = (Pad->wButtons & XINPUT_GAMEPAD_BACK);
+                    bool LeftShoulder = (Pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
+                    bool RightShoulder = (Pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
+                    bool AButton = (Pad->wButtons & XINPUT_GAMEPAD_A);
+                    bool BButton = (Pad->wButtons & XINPUT_GAMEPAD_B);
+                    bool XButton = (Pad->wButtons & XINPUT_GAMEPAD_X);
+                    bool YButton = (Pad->wButtons & XINPUT_GAMEPAD_Y);
+                    int16 StickX = Pad->sThumbLX;
+                    int16 StickY = Pad->sThumbLY;
+
+                    XOffset += StickX >> 12;
+                    YOffset += StickY >> 12;
+                    if (AButton)
+                        { YOffset +=2;}
+                    
+                }
+
+            }
+                XINPUT_VIBRATION Vibration;
+                Vibration.wLeftMotorSpeed = 6000;
+                Vibration.wRightMotorSpeed = 6000;
+
+                
+                win32_window_dimension Dimension = Win32GetWindowDimension(Window);
+                Win32ResizeDIBSection(&GlobalBackbuffer, Dimension.Width, Dimension.Height);
                 RenderWeirdGradient(GlobalBackbuffer, XOffset, YOffset);
-                Win32DisplayBufferInWindow(DeviceContext, WindowWidth, WindowHeight, GlobalBackbuffer,0, 0, WindowWidth, WindowHeight);
+                Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, GlobalBackbuffer,0, 0, Dimension.Width, Dimension.Height);
 
                 ++XOffset;
                 YOffset +=2;

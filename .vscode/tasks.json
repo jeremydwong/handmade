@@ -6,7 +6,9 @@
             "type": "shell",
             "command": "build.bat",
             "options": {
-                "cwd": "${workspaceFolder}/code"
+                "cwd": "${workspaceFolder}/code",
+                "executable": "cmd.exe",
+                "args": ["/c"]
             },
             "group": {
                 "kind": "build",
