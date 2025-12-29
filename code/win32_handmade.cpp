@@ -89,26 +89,26 @@ internal void RenderWeirdGradient(win32_offscreen_buffer Buffer, int Xoffset, in
 
 //truly this is like create bitmap buffer, rather than a resize.
 internal void
-Win32ResizeDIBSection(win32_offscreen_buffer Buffer, int Width, int Height)
+Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
 {
     // TODO(casey): Bulletproof this.
     // Maybe don't free first, free after, then free first if that fails.
-if(Buffer.Memory)
+if(Buffer->Memory)
 {
-    VirtualFree(Buffer.Memory, 0, MEM_RELEASE); //0: just the size we allocated before
+    VirtualFree(Buffer->Memory, 0, MEM_RELEASE); //0-> just the size we allocated before
     // one way we could catch bugs of pointers to stale memory is to do VirtualProtect
     // to no access here, so that if we try to use it again we will get a page fault.
 }
 
-    Buffer.Width = Width;
-    Buffer.Height = Height;
+    Buffer->Width = Width;
+    Buffer->Height = Height;
     int BytesPerPixel = 4;
-    Buffer.Info.bmiHeader.biSize = sizeof(Buffer.Info.bmiHeader); //cool. here we are going to pass biSize so that we can do pointer arithmetic under the hood in CreateDIBSection
-    Buffer.Info.bmiHeader.biWidth = Buffer.Width;
-    Buffer.Info.bmiHeader.biHeight = -Buffer.Height; // define DIB as top-down
-    Buffer.Info.bmiHeader.biPlanes = 1;
-    Buffer.Info.bmiHeader.biBitCount = 32; //R, G, B, each 8 bits, and a padding byte.
-    Buffer.Info.bmiHeader.biCompression = BI_RGB;
+    Buffer->Info.bmiHeader.biSize = sizeof(Buffer->Info.bmiHeader); //cool. here we are going to pass biSize so that we can do pointer arithmetic under the hood in CreateDIBSection
+    Buffer->Info.bmiHeader.biWidth = Buffer->Width;
+    Buffer->Info.bmiHeader.biHeight = -Buffer->Height; // define DIB as top-down
+    Buffer->Info.bmiHeader.biPlanes = 1;
+    Buffer->Info.bmiHeader.biBitCount = 32; //R, G, B, each 8 bits, and a padding byte.
+    Buffer->Info.bmiHeader.biCompression = BI_RGB;
 
     // TODO(casey): Based on ssylvan's suggestion, maybe we can just
     // allocate this ourselves?
@@ -116,15 +116,15 @@ if(Buffer.Memory)
     // no more DC needed for us. 
 
     // now set the bitmap memory, it was a pointer.
-    int BitmapMemorySize = (Buffer.Width * Buffer.Height)*BytesPerPixel;
+    int BitmapMemorySize = (Buffer->Width * Buffer->Height)*BytesPerPixel;
     // here we use virtualalloc, a bit more raw, returns pages. so 4096 byte aligned. 12 bits.
-    Buffer.Memory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
-    Buffer.Pitch = Width*BytesPerPixel;
+    Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
+    Buffer->Pitch = Width*BytesPerPixel;
         
 }
 
 internal void
-Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight,  win32_offscreen_buffer Buffer, int X, int Y, int Width, int Height)
+Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight,  win32_offscreen_buffer *Buffer, int X, int Y, int Width, int Height)
 {
     /* 
      convention for storing something 2D in something that is 1D. 
@@ -134,15 +134,15 @@ Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight,
         to get to the next row is called the pitch
         the stride is the thing you'd typically add to the end is the stride.
     */
-    //DIB:DeviceIndependentBitmap
+    //DIB->DeviceIndependentBitmap
     // TODO: (casey says): aspect ratio correction
     StretchDIBits(DeviceContext,
                   /*X, Y, Width, Height,
                   X, Y, Width, Height,*/
                   0,0, WindowWidth,WindowHeight,
-                  0,0, Buffer.Width,Buffer.Height,
-                  Buffer.Memory,
-                  &Buffer.Info,
+                  0,0, Buffer->Width,Buffer->Height,
+                  Buffer->Memory,
+                  &Buffer->Info,
                   DIB_RGB_COLORS, SRCCOPY);
                   // DIB_RGB_COLORS: we are specifying colors directly
                     // SRCCOPY: raster operation, just copy source directly to dest
@@ -194,7 +194,7 @@ Win32MainWindowCallback(HWND Window,
             RECT ClientRect;
             GetClientRect(Window, &ClientRect);
             win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-            Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, GlobalBackbuffer, X, Y, Width, Height);
+            Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, &GlobalBackbuffer, X, Y, Width, Height);
             EndPaint(Window, &Paint);
         } break;
 
@@ -268,9 +268,9 @@ WinMain(HINSTANCE Instance,
                 GetClientRect(Window, &ClientRect);
                 int WindowWidth = ClientRect.right - ClientRect.left;
                 int WindowHeight = ClientRect.bottom - ClientRect.top;
-                Win32ResizeDIBSection(GlobalBackbuffer, WindowWidth, WindowHeight);
+                Win32ResizeDIBSection(&GlobalBackbuffer, WindowWidth, WindowHeight);
                 RenderWeirdGradient(GlobalBackbuffer, XOffset, YOffset);
-                Win32DisplayBufferInWindow(DeviceContext, WindowWidth, WindowHeight, GlobalBackbuffer,0, 0, WindowWidth, WindowHeight);
+                Win32DisplayBufferInWindow(DeviceContext, WindowWidth, WindowHeight, &GlobalBackbuffer,0, 0, WindowWidth, WindowHeight);
 
                 ++XOffset;
                 YOffset +=2;
