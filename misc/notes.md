@@ -10,6 +10,16 @@ platform requirements : linking XInput.lib . this is somewhat a problem! we do n
 - so can we get away with not launching the game if you don't have an external symbol problem. 
 
 Fix is: loading windows functions ourselves, and using a stub function if we do not have an xinput plugged in. 
+
+to do this involves a few steps that handle the cosmetics of using still the same command (XInputGetState / XInputSetState). 
+
+1. first we do a define statement that sets up a findreplace to create function signatures identical to our true XInputGetState calls (which typically takes in 2 args, a counter and a pointer) and SetState (which takes in 2, a counter and vibration). So we're left with find/replaces for XINPUTGETSTATE(name) and SET()
+
+2. then we do a typedef where we use of the find/replace and return 0 (a stub). so we call it like this: XINPUTRGETSTATE(GETSTUB) {return 0};
+
+3. now that we have those stubs, we assign them to a global variable. 
+4. finally we do another define statement that will replace any time we use the true word with our fake word.
+
 ### 2025-12-23 Day 5
 
 watch chandler carruth lectures for optimizer compiling. 
