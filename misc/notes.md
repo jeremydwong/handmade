@@ -1,5 +1,12 @@
 notes
+### 2025-12-31 Day 7
 
+Crazy bug where i was doing a 
+if (Message.WParam == WM_QUIT)
+when i should have been doing 
+(Message.message == WM_QUIT)
+
+crazily enough, WParam was alt, which happened to be the same as WM_QUIT. any other number and i wouldn't have caught the error. 
 ### 2025-12-29 Day 6
 
 getting controller state. 

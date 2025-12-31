@@ -14,15 +14,16 @@
 #define local_persist static    // static means different things in different contexts. local_persist across calls.
 #define global_variable static  // genuine global variable; try to remove as much as possible.
 
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
-
 typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
 typedef int64_t int64;
+typedef int32 bool32;
+
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
 
 struct win32_window_dimension
 {
@@ -43,7 +44,7 @@ struct win32_offscreen_buffer
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
 typedef X_INPUT_GET_STATE(x_input_get_state);
 X_INPUT_GET_STATE(XInputGetStateStub)
-{ return 0;}
+{ return ERROR_DEVICE_NOT_CONNECTED;} //be careful! 0-> is actually_ERROR_SUCCESS. 
 global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
 #define XInputGetState XInputGetState_
 
@@ -51,22 +52,29 @@ global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
 #define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
 typedef X_INPUT_SET_STATE(x_input_set_state);
 X_INPUT_SET_STATE(XInputSetStateStub)
-{ return 0;}
+{ return ERROR_DEVICE_NOT_CONNECTED;}
 global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState  XInputSetState_
 
 internal void 
 Win32LoadXInput(void)
 {
-    HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
-    if (XInputLibrary) {
-        void *temp = GetProcAddress(XInputLibrary, "XInputGetState");
-        XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
-        if(!XInputGetState) {XInputGetState = XInputGetStateStub;}
-        XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
-        if(!XInputSetState) {XInputSetState = XInputSetStateStub;}
-    }
+    HMODULE XInputLibrary = LoadLibraryA("xinput1_3.dll");
+    if (!XInputLibrary) {
+        HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll"); //we do not have 1.3 in windows>8. so we can't rely on that anymore...
+        if (XInputLibrary) {
+            void *temp = GetProcAddress(XInputLibrary, "XInputGetState");
+            XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+            if(!XInputGetState) {XInputGetState = XInputGetStateStub;}
+            XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+            if(!XInputSetState) {XInputSetState = XInputSetStateStub;}
+        }
+        else
+        {
+            // TODO(jer): Logging
+        }
     
+}
 }
 
 // TODO(casey): This is a global for now.
@@ -197,7 +205,8 @@ Win32MainWindowCallback(HWND Window,
     LRESULT Result = 0;
 
     switch(Message)
-    {
+    {   
+        
         case WM_SIZE:
         {
             
@@ -219,11 +228,14 @@ Win32MainWindowCallback(HWND Window,
             // TODO(casey): Handle this as an error - recreate window?
             GlobalRunning = false;
         } break;
+        case WM_SYSKEYDOWN:
+        case WM_SYSKEYUP:
         case WM_KEYUP:
+        case WM_KEYDOWN:
         {
             uint32 VKCode = WParam;
-            bool WasDown = ((LParam & (1 << 30)) != 0);
-            bool IsDown = ((LParam & (1 << 31)) == 0);
+            bool WasDown = ((LParam & (1 << 30)) != 0); // 30 is previous state. 
+            bool IsDown = ((LParam & (1 << 31)) == 0);  // 31 is current state.
             if(WasDown != IsDown)
             {
                 if(VKCode == 'W')
@@ -272,7 +284,13 @@ Win32MainWindowCallback(HWND Window,
                 else if(VKCode == VK_SPACE)
                 {
                 }
+                
             }
+            bool32 AltKeyWasDown = (LParam & (1 << 29)); // alt key has separate bit. 0 is not down.
+            if((VKCode==VK_F4) && AltKeyWasDown)
+            {
+                GlobalRunning = false;
+            } 
         } break;
         case WM_PAINT:
         {
@@ -345,7 +363,7 @@ WinMain(HINSTANCE Instance,
                
                 while(PeekMessageA(&Message, 0, 0, 0, PM_REMOVE))
                 {
-                    if(Message.wParam == WM_QUIT){
+                    if(Message.message == WM_QUIT){
                         GlobalRunning = false;
                     }
                     TranslateMessage(&Message);
