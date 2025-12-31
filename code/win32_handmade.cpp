@@ -9,6 +9,7 @@
 #include <windows.h>
 #include <stdint.h>
 #include <Xinput.h>
+#include <dsound.h>
 
 #define internal static         // define file scope functions as internal
 #define local_persist static    // static means different things in different contexts. local_persist across calls.
@@ -56,9 +57,14 @@ X_INPUT_SET_STATE(XInputSetStateStub)
 global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState  XInputSetState_
 
+//sound
+#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuiDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
+typedef DIRECT_SOUND_CREATE(direct_sound_create);
+
 internal void 
 Win32LoadXInput(void)
 {
+    // todo(jer): diagnostic so that when we do error checking, we know which got loaded. 
     HMODULE XInputLibrary = LoadLibraryA("xinput1_3.dll");
     if (!XInputLibrary) {
         HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll"); //we do not have 1.3 in windows>8. so we can't rely on that anymore...
@@ -76,6 +82,84 @@ Win32LoadXInput(void)
     
 }
 }
+
+internal void 
+Win32initDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize)
+{
+    // NOTE(jer): load, then get DirectSound object! coopperative
+    HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
+    DSBUFFERDESC BufferDescription = {};
+    if (DSoundLibrary)
+    {
+        direct_sound_create *DirectSoundCreate = (direct_sound_create *)
+            GetProcAddress(DSoundLibrary, "DirectSoundCreate");
+        
+        LPDIRECTSOUND DirectSound;
+        if (DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &DirectSound, 0)))
+        {   
+            WAVEFORMATEX WaveFormat = {};
+            WaveFormat.wFormatTag = WAVE_FORMAT_PCM;
+            WaveFormat.nChannels = 2; //stereo
+            WaveFormat.nSamplesPerSec = SamplesPerSecond;
+            WaveFormat.wBitsPerSample = 16;
+            WaveFormat.nBlockAlign = (WaveFormat.nChannels*WaveFormat.wBitsPerSample)/8;
+            WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec*WaveFormat.nBlockAlign;
+            WaveFormat.cbSize = 0;
+            if (SUCCEEDED(DirectSound->SetCooperativeLevel(Window, DSSCL_PRIORITY)))
+            {
+                BufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
+                BufferDescription.dwSize = sizeof(BufferDescription);
+
+                // Note(jer): then we will create a primary buffer, where you wrote directly to the card...
+                // Note(jer): global focus ? 
+                LPDIRECTSOUNDBUFFER PrimaryBuffer;
+                if(SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &PrimaryBuffer, 0)))
+                {   HRESULT Error = PrimaryBuffer->SetFormat(&WaveFormat); 
+                    if (SUCCEEDED(PrimaryBuffer->SetFormat(&WaveFormat)))
+                    {
+                        // NOTE(jer): We finally set the format! 
+                    }
+                    else
+                    {
+                        // TODO(jer): diagnostic
+                    }
+                }
+                else 
+                {
+                    // TODO(jer): diagnostic
+                }
+            
+            }
+            else
+            {
+                // TODO(jer): diagnostic
+            }
+            // TODO(jere): GETCURRENTPOSITION2
+            DSBUFFERDESC BufferDescription = {};
+            BufferDescription.dwSize = sizeof(BufferDescription);
+            BufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
+            BufferDescription.dwBufferBytes = BufferSize;
+            BufferDescription.lpwfxFormat = &WaveFormat;
+            LPDIRECTSOUNDBUFFER SecondBuffer;
+            if(SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &SecondBuffer, 0)))
+            {
+               //start playing
+            }
+            else 
+            {
+                // TODO(jer): diagnostic
+            }
+            
+            // then we will create a secondary buffer which is where we will actually write to
+            BufferDescription.dwBufferBytes = BufferSize;
+            // then we will start it playing!
+        }
+
+    }
+    // would rather not have to deal with COM. Unfortunately this is just the best API...
+    
+}
+
 
 // TODO(casey): This is a global for now.
 // in general, do not want to have globals. hard to know where and when they are being accessed
@@ -327,7 +411,6 @@ WinMain(HINSTANCE Instance,
     WNDCLASSA WindowClass = {};
     Win32ResizeDIBSection(&GlobalBackbuffer, 1280, 720);
 
-    
     // TODO(casey): Check if HREDRAW/VREDRAW/OWNDC still matter
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
@@ -354,9 +437,14 @@ WinMain(HINSTANCE Instance,
         if(Window)
         {
             HDC DeviceContext = GetDC(Window);
+
             int XOffset = 0;
             int YOffset = 0;
+
+            Win32initDSound(Window, 48000, 48000*sizeof(int16)*2); //stereo
+
             GlobalRunning = true;
+
             while(GlobalRunning)
             {
                 MSG Message;
