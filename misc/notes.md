@@ -1,6 +1,15 @@
 notes
 ### 2025-12-31 Day 7
 
+
+#### actual audio stuff: 
+why do we have 2 seconds?
+we have an audiobuffer of some amount that is actually a circular buffer. so you write to a buffer, and then the buffer will loop read (within directsound). 
+
+maybe in general we want to write one or two frames ? 
+
+when you here a stutter in sound, that is the narrow buffer problem. So one approach to avoiding that stutter is, if you have even a hammering of the computer's performance, you'll still be hearing some sensical sound.   
+
 Crazy bug where i was doing a 
 if (Message.WParam == WM_QUIT)
 when i should have been doing 
