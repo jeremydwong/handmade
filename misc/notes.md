@@ -1,6 +1,52 @@
-notes
-### 2025-12-31 Day 7
+#notes
+### Gotchas (vscode, etc)
+"the input line is too long." -> this is a vscode death somehow. not sure why. 
 
+### 2025-01-08 Day 9 Variable pitch sound buffer.
+story:
+how many games could we try to make in a few days that play with the idea of 100000 guys at once. 100000 sprites. 
+
+
+### 2025-01-04 Day 8 Testing the sound buffer. 
+Ideas:
+circular sound-buffer: easy to keep track of true spot with mod %, giving you remainder when you wrap
+had to be fairly intelligent about how to keep track of the two stereo 16bit channels, then each time-sample is a DWORD. 
+
+#### Pseudocode: Two-Buffer Setup, Lock, Write, Play
+
+```
+1. Create primary buffer (system buffer)
+    - CreateSoundBuffer(primaryBufferDesc) -> primaryBuffer
+
+2. Create secondary buffer (our working buffer)
+    - Set format: sample rate, channels, bit depth
+    - Set size: typically 2 seconds of audio data
+    - CreateSoundBuffer(secondaryBufferDesc) -> secondaryBuffer
+
+3. Set format on primary buffer
+    - primaryBuffer->SetFormat(waveFormatEx)
+
+4. Lock secondary buffer for writing
+    - secondaryBuffer->Lock(offset, bytes, audioPtr1, bytes1, audioPtr2, bytes2, flags)
+    - Note: circular buffer may wrap, giving two pointers
+
+5. Write audio data
+    - memcpy(audioPtr1, samples, bytes1)
+    - if (bytes2 > 0) memcpy(audioPtr2, samples + bytes1, bytes2)
+
+6. Unlock buffer
+    - secondaryBuffer->Unlock(audioPtr1, bytes1, audioPtr2, bytes2)
+
+7. Play
+    - secondaryBuffer->Play(0, 0, DSBPLAY_LOOPING)
+
+8. Continuously loop: lock -> write new frame -> unlock
+```
+
+### 2025-12-31 Day 7 Creating the sound buffer
+WIn32 Directsound
+- you actually create two buffers, which is kind of stupid
+- you pass references to a buffer around so that you can write to the buffer
 
 #### actual audio stuff: 
 why do we have 2 seconds?
@@ -16,7 +62,7 @@ when i should have been doing
 (Message.message == WM_QUIT)
 
 crazily enough, WParam was alt, which happened to be the same as WM_QUIT. any other number and i wouldn't have caught the error. 
-### 2025-12-29 Day 6
+### 2025-12-29 Day 6 Reading controller state
 
 getting controller state. 
 all you do is use XInput, you get a structure, and you can loop. 
