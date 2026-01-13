@@ -2,7 +2,12 @@
 ### Gotchas (vscode, etc)
 "the input line is too long." -> this is a vscode death somehow. not sure why. 
 
-### 2025-01-08 Day 9 Variable pitch sound buffer.
+### 2026-01-13 Day 10 QueryPerformanceCounter()
+there are a few approaches to getting info about this but we've been using 
+QueryPerformanceFrequcny is a long int that tracks something like a clockcycle counter per second;
+you can then track QueryPerformanceCounter regularly and update a ms-converted int. 
+
+### 2026-01-08 Day 9 Variable pitch sound buffer.
 story:
 how many games could we try to make in a few days that play with the idea of 100000 guys at once. 100000 sprites. 
 

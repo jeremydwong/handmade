@@ -482,6 +482,10 @@ WinMain(HINSTANCE Instance,
         int ShowCode)
 {   Win32LoadXInput();
 
+    LARGE_INTEGER PerfCounterFrequencyResult;
+    QueryPerformanceFrequency(&PerfCounterFrequencyResult);
+    int64 PerfCounterFrequency = PerfCounterFrequencyResult.QuadPart;
+
     WNDCLASSA WindowClass = {};
     Win32ResizeDIBSection(&GlobalBackbuffer, 1280, 720);
 
@@ -534,6 +538,11 @@ WinMain(HINSTANCE Instance,
 
             GlobalRunning = true;
 
+            LARGE_INTEGER LastCounter;
+            QueryPerformanceCounter(&LastCounter);
+            
+            
+
             while(GlobalRunning)
             {
                 MSG Message;
@@ -572,8 +581,8 @@ WinMain(HINSTANCE Instance,
                     int16 StickX = Pad->sThumbLX;
                     int16 StickY = Pad->sThumbLY;
 
-                    XOffset += StickX >> 12;
-                    YOffset += StickY >> 12;
+                    //XOffset += StickX >> 12;
+                    //YOffset += StickY >> 12;
                     if (AButton)
                         { YOffset +=2;}
                     
@@ -621,7 +630,16 @@ WinMain(HINSTANCE Instance,
 
                 Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, &GlobalBackbuffer,0, 0, Dimension.Width, Dimension.Height);
 
+                LARGE_INTEGER EndCounter;
+                QueryPerformanceCounter(&EndCounter);
 
+                // TODO(jer) : display value here
+                int64 CounterElapsed = EndCounter.QuadPart - LastCounter.QuadPart; //we need to translate this back to wall clock time.
+                int64 CounterElapsedMS = (1000*CounterElapsed) / PerfCounterFrequency;
+                LastCounter = EndCounter;
+                char Buffer[256];
+                wsprintfA(Buffer, "MS/frame: %ld\n", CounterElapsedMS);
+                OutputDebugStringA(Buffer);
             }
         }
         {
