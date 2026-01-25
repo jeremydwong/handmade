@@ -2,6 +2,19 @@
 ### Gotchas (vscode, etc)
 "the input line is too long." -> this is a vscode death somehow. not sure why. 
 
+### 2026-01-13 Day 11 The basics of platform api design!!
+
+(up until now, we've basically been interacting with windows!)
+
+Platform-specific: win32_ 
+So, when we need to write code that is a different platform, we need to swap these out. 
+
+You can (or the old style used to be) scatter the files with preprocessor #if and #endif.
+But this makes the cross-platform management horrendous!
+
+Casey's preferred methods:
+- have a common headerfile that is a platform-specific header. the main file handmade.cpp then refers to that file handmade.h which defines the platform-specific functions. 
+
 ### 2026-01-13 Day 10 QueryPerformanceCounter()
 there are a few approaches to getting info about this but we've been using 
 QueryPerformanceFrequcny is a long int that tracks something like a clockcycle counter per second;
