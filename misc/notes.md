@@ -2,6 +2,24 @@
 ### Gotchas (vscode, etc)
 "the input line is too long." -> this is a vscode death somehow. not sure why. 
 
+### 2026-01-24 Day 12
+12 COMPLETE. 
+
+_alloca() -> memory alloc that is freed with the function. so, you cannot stick it in a loop, it's not freed to the scope that it's associated with. So alloca directly bumps the stack pointer within the current function's stack frame. ignores bracing. Sort of surprisng to me that this is how it works. you have to read and know this. 
+Stack 'Frame' -> literally means per function call. a frame hsa the return address, the function parameters, local variables, saved registers. 
+
+We are now going to extract other platform-independent code into handmade.cpp/.h.
+
+neat to think about: sound has to be output a huge number of samples per second, so temporal that you need 4kHz things per second, and if you fail, it is harsh and unpleasant. a flat-out bug. 
+
+so when we prepare a frame we don't really need to know how long it is going to be on the screen. 
+
+with rendering, at a particular instant in time we need an image and give it
+
+with sound, we don't have that. we need to know that we have to add some sound for some time!
+
+"always write the usage code first when trying to define an API. write some code that uses the things that i think that i need, now we can define the API that does exactly that or as close as we can."
+
 ### 2026-01-13 Day 11 The basics of platform api design!!
 
 (up until now, we've basically been interacting with windows!)
