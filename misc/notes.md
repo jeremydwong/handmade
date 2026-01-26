@@ -2,6 +2,18 @@
 ### Gotchas (vscode, etc)
 "the input line is too long." -> this is a vscode death somehow. not sure why. 
 
+### 2026-01-25 day 13
+User events.
+
+how do we handle events from the user? 
+
+idea: we encode a efw things that the user can do: Where did the button start, where did it end, how many transitions did it do. 
+
+why would i want to incur the downsides of havign a variable size of storage unless it's advantageous?
+
+i.e in gameupdateandrender?
+
+
 ### 2026-01-24 Day 12
 12 COMPLETE. 
 

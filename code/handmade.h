@@ -7,9 +7,12 @@
    $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
 
+#define ArrayCount(Array) (sizeof(Array)/sizeof((Array)[0]))
 /*
   TODO(casey): Services that the platform layer provides to the game
 */
+
+// todo: swap new old macros
 
 /*
   NOTE(casey): Services that the game provides to the platform layer.
@@ -36,7 +39,50 @@ struct game_sound_output_buffer
     
 };
 
-internal void GameUpdateAndRender(game_offscreen_buffer *Buffer, int BlueOffset, int GreenOffset, game_sound_output_buffer *SoundBuffer, int ToneHz);
+struct game_button_state
+{
+  int HalfTransitionCount;
+  bool32 EndedDown;
+};
 
+struct game_controller_input
+{
+  real32 StartX;
+  real32 StartY;
+  
+  real32 MinX;
+  real32 MinY;
+  
+  real32 MaxX;
+  real32 MaxY;
+
+  real32 EndX;
+  real32 EndY;
+  
+  bool32 IsAnalog;
+
+  union 
+  {
+    game_button_state Buttons[6]; /* data */
+    struct 
+    { 
+      game_button_state Up;
+      game_button_state Down;
+      game_button_state Left;
+      game_button_state Right;
+      game_button_state RightShoulder;
+      game_button_state LeftShoulder;
+    };
+  };
+
+};
+
+struct game_input
+{
+  game_controller_input Controllers[4];
+};
+
+internal void 
+GameUpdateAndRender(game_input *Input, game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer);
 #define HANDMADE_H
 #endif
