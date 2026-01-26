@@ -6,7 +6,25 @@
    $Creator: Casey Muratori $
    $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
-
+/* Note(jer):
+HANDMADE_INTERNAL:
+  0 - BUILD FOR PUBLIC
+  1 - BUILD FOR DEV
+  
+HANDMADE_SLOW:
+  0 - NOT SLOW CODE ALLOWED!
+  1 - SLOW CODE WELCOME!
+*/
+   #if HANDMADE_SLOW
+   #define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
+#else
+    #define Assert(Expression)
+#endif
+//NOTE(jer): should these always be using 64bit? 
+#define Kilobytes(Value) ((Value)*1024LL)
+#define Megabytes(Value) (Kilobytes(Value)*1024LL)
+#define Gigabytes(Value) (Megabytes(Value)*1024LL)
+#define Terabytes(Value) (Gigabytes(Value)*1024LL)
 #define ArrayCount(Array) (sizeof(Array)/sizeof((Array)[0]))
 /*
   TODO(casey): Services that the platform layer provides to the game
@@ -79,10 +97,31 @@ struct game_controller_input
 
 struct game_input
 {
+  //todo(jer): insert clock values here.
   game_controller_input Controllers[4];
 };
 
+struct game_memory
+{
+  bool32 IsInitialized;
+  uint64 PermanentStorageSize;
+  void *PermanentStorage; // NOTE(jer): REQUIRED to be cleared to zero at start. 
+  uint64 TransientStorageSize;
+  void *TransientStorage; 
+};
+
 internal void 
-GameUpdateAndRender(game_input *Input, game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer);
+GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer);
+
+//
+//
+//
+struct game_state
+{
+  int ToneHz;
+  int GreenOffset;
+  int BlueOffset;
+};
+
 #define HANDMADE_H
 #endif
