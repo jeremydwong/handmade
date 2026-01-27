@@ -5,17 +5,15 @@
    $Creator: Casey Muratori $
    $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
-
 /*
-  TODO(casey):  THIS IS NOT A FINAL PLATFORM LAYER!!!
 
+  TODO(casey):  THIS IS NOT A FINAL PLATFORM LAYER!!!
   - Saved game locations
   - Getting a handle to our own executable file
   - Asset loading path
   - Threading (launch a thread)
   - Raw Input (support for multiple keyboards)
   - Sleep/timeBeginPeriod
-  - ClipCursor() (for multimonitor support)
   - Fullscreen support
   - WM_SETCURSOR (control cursor visibility)
   - QueryCancelAutoplay
@@ -86,10 +84,53 @@ X_INPUT_SET_STATE(XInputSetStateStub)
 }
 global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
-
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
+internal
+void *
+DEBUGPlatformReadEntireFile(char *FileName)
+{
+  void *Result = 0;
+  HANDLE FileHandle = CreateFileA(FileName, GENERIC_READ,FILE_SHARE_READ,0,OPEN_EXISTING,0,0);
+  if(FileHandle!=INVALID_HANDLE_VALUE)
+    {
+      LARGE_INTEGER FileSize;
+      if(GetFileSizeEx(FileHandle, &FileSize))
+      {
+	  //todo: defines for maximum values
+	  Assert(FileSize.Quadpart <= 0xFFFFFFFF);
+	  uint32 FileSize32 = (uint32)FileSize.QuadPart;
+	  Result = VirtualAlloc(0,FileSize.QuadPart, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+	  if(Result)
+	  {
+	      DWORD BytesRead;
+	      if(ReadFile(FileHandle,Result,FileSize.QuadPart, &BytesRead, 0) && (FileSize32==BytesRead))
+	      {
+		//note(jer):file successfully read
+	      }
+	      else
+	      {
+		//todo(jer): logging
+		DEBUGPlatformFreeFileMemory(Result);
+		Result = 0;
+	      }
+	  }
+	
+      }
+      CloseHandle(FileHandle);
+    }
+  return Result;
+}
+
+internal void
+DEBUGPlatformFreeFileMemory(void *Memory)
+{
+  if(Memory)
+  {
+    VirtualFree(Memory, 0, MEM_RELEASE);
+  }
+}
 void *
 PlatformLoadFile(char *FileName)
 {

@@ -9,13 +9,20 @@
 #include "handmade.h"
 #include <math.h>
 
+inline uint32
+SafeTruncateInt64(uint64 value)
+{
+  Assert(Value <=0xFFFFFFFF);
+  uint32 Result = (uint32) value;
+  return Result;
+}
+
 internal void
 GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz) 
 {
     local_persist real32 tSine;
     int16 ToneVolume = 3000;
     int WavePeriod = SoundBuffer->SamplesPerSecond/ToneHz;
-
     int16 *SampleOut = SoundBuffer->Samples;
     for(int SampleIndex = 0;
         SampleIndex < SoundBuffer->SampleCount;
@@ -56,7 +63,6 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer, int BlueOffset, int GreenOffs
     }
 }
 
-
 internal void
 GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer)
 {
@@ -65,6 +71,12 @@ GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffe
     game_state *GameState = (game_state *)Memory->PermanentStorage;
     if(!Memory->IsInitialized)
     {
+        char *Filename = "test.bmp";
+	void *BitmapMemory = DEBUGPlatformReadEntireFile(Filename);
+	if(BitmapMemory)
+	{
+	  
+	}
         // TODO(casey): Need to zero this properly
         GameState->ToneHz = 256;
         GameState->GreenOffset = 0;

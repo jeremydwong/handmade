@@ -15,6 +15,7 @@ HANDMADE_SLOW:
   0 - NOT SLOW CODE ALLOWED!
   1 - SLOW CODE WELCOME!
 */
+#define HANDMADE_INTERNAL 1
    #if HANDMADE_SLOW
    #define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
 #else
@@ -29,7 +30,11 @@ HANDMADE_SLOW:
 /*
   TODO(casey): Services that the platform layer provides to the game
 */
-
+#if HANDMADE_INTERNAL
+internal void *DEBUGPlatformReadEntireFile(char *Filename);
+internal void DEBUGPlatformFreeFileMemory(void *Memory);
+internal bool32 DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory);
+#endif
 // todo: swap new old macros
 
 /*

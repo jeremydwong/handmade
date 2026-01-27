@@ -1,6 +1,50 @@
 #notes
+
+## Main Casey ideas:
+
+### Abstracting away from the platform (win32)
+- platform abstraction layer: platform to game to platform loops
+-> try not to do full loops! 
+-> huge win in terms of playback. 
+
+"gimme the frame, gimme the sound, i'll give you the memory block at the beginning, and the controller inputs. that's it."
+
 ### Gotchas (vscode, etc)
 "the input line is too long." -> this is a vscode death somehow. not sure why. 
+
+### things to review (and get quizzed on!):
+basic syntax stuff:
+uint32 x : 1; //this says that int is actually only going to be 1 bit! we can pack them together. and maybe we have to
+
+1. I don't know that i understand the platform layer so well. it would help to regularly review this beginning from the main loop. 
+Here's my attempt:
+Winmain:
+-> setup performance frequency so that we have a clock. cycles per second. 
+-> setup XInput via Win32LoadXInput()
+    (this function was cool; we loaded a library via xinput1_4.dll; and overwrites XInputGetState/SetState). 
+-> create a windowclass so that we can handle events primarily
+-> initialize the window size.
+
+-> then initialize device context HDC so that we can draw to things. 
+
+-> then do a set of sound inits: persecond, buffer, latency, create the double buffer, and begin play. 
+
+-> init controller variables. 
+
+-> parse controller
+
+-> lock the sound buffer 
+
+->call gameUpdateandrender (draw and sound)
+    -> write to the sound buffer, and blit to the rgb buffer
+-> draw!
+
+### 2026-01-27 day 15: File io
+
+### 2026-01-26 day 14: Memory management
+
+pretty simple writing! learned about casting pointers 
+
 
 ### 2026-01-25 day 13
 User events.
