@@ -24,23 +24,35 @@ Winmain:
     (this function was cool; we loaded a library via xinput1_4.dll; and overwrites XInputGetState/SetState). 
 -> create a windowclass so that we can handle events primarily
 -> initialize the window size.
-
 -> then initialize device context HDC so that we can draw to things. 
-
 -> then do a set of sound inits: persecond, buffer, latency, create the double buffer, and begin play. 
-
 -> init controller variables. 
-
 -> parse controller
-
 -> lock the sound buffer 
-
 ->call gameUpdateandrender (draw and sound)
     -> write to the sound buffer, and blit to the rgb buffer
 -> draw!
 
-### 2026-01-27 day 15: File io
+### 2026-02-27: day 16 compiler switches to do windows and other levels
+we have no warnings in our existing compilation
+cl /Zi /Od ..\handmade\code\win32_handmade.cpp user32.lib gdi32.lib
+cl -W3 or W4 will compile! 1 and 2 are too verbose
+cl -WX -> warnings become errors. 
+our approach: we turn off all warnings that we think are frivolous, and make the rest compile-killers with WX.
+prefers to keep warning level high and actually deal with them 
+-Zi or /Zi -> debugging files that annotates or illustrates to the debugger where in the executable maps to where in the source file, variable names, etc. debug info is many times the size. -Zi can sometimes be problematic with the way tht pdb handling was done. can change Zi to a -Z7. weird mappings, race conditions, etc.
+-Oi -> even though this is a debug build, do the intrinsic things that you can (like say if you know how to do sine on the processor go ahead)
+- -GR- turn off runtime type information
+- -EHa- -> exception handling. ability to do try throw catch -> even if you're functions deep, it will unspool the stack, if we could catch it all the way up, go ahead. generates extra stuff on the stack that we do not actually need. maybe not much of an efficiency thing. 
+- need compatibility flags -subsystem:windows,5.1
+- MD bad -> use the dll VS -MT -> package the c runtime library into the exe. 
+- -Gm -> no incremental builds at all by windows
+- Fm allows us to pass something telling the linker a location to stick a map file. now you get a .map file, which is interesting: in text form, where all of the functions aer in your executable. 
+-opt:ref
 
+### 2026-01-27 day 15: File io
+wow! okay, a lot of wrestling with code and emacs, but maybe we've improved our development environment. i'm not really sure to be honest. it feels pretty awkward on the wrists to be doing the emacs hotkeys a lot. we'll see how it goes. 
+fileio: main IDEA from casey is to try to reading everythig at the beginnign, because we aren't streaming: we know what we want, we have a lot of memory, so put it all in there and assign it, and then you are in better shape. 
 ### 2026-01-26 day 14: Memory management
 
 pretty simple writing! learned about casting pointers 

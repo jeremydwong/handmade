@@ -101,11 +101,11 @@ DEBUGPlatformReadEntireFile(char *FileName)
 	  //todo: defines for maximum values
 	  Assert(FileSize.Quadpart <= 0xFFFFFFFF);
 	  uint32 FileSize32 = (uint32)FileSize.QuadPart;
-	  Result = VirtualAlloc(0,FileSize.QuadPart, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+	  Result = VirtualAlloc(0,(SIZE_T)FileSize.QuadPart, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 	  if(Result)
 	  {
 	      DWORD BytesRead;
-	      if(ReadFile(FileHandle,Result,FileSize.QuadPart, &BytesRead, 0) && (FileSize32==BytesRead))
+	      if(ReadFile(FileHandle,Result,(SIZE_T)FileSize.QuadPart, &BytesRead, 0) && (FileSize32==BytesRead))
 	      {
 		//note(jer):file successfully read
 	      }
@@ -345,72 +345,7 @@ Win32MainWindowCallback(HWND Window,
             // TODO(casey): Handle this as an error - recreate window?
             GlobalRunning = false;
         } break;
-
-        case WM_SYSKEYDOWN:
-        case WM_SYSKEYUP:
-        case WM_KEYDOWN:
-        case WM_KEYUP:
-        {
-            uint32 VKCode = WParam;
-            bool32 WasDown = ((LParam & (1 << 30)) != 0);
-            bool32 IsDown = ((LParam & (1 << 31)) == 0);
-            if(WasDown != IsDown)
-            {
-                if(VKCode == 'W')
-                {
-                }
-                else if(VKCode == 'A')
-                {
-                }
-                else if(VKCode == 'S')
-                {
-                }
-                else if(VKCode == 'D')
-                {
-                }
-                else if(VKCode == 'Q')
-                {
-                }
-                else if(VKCode == 'E')
-                {
-                }
-                else if(VKCode == VK_UP)
-                {
-                }
-                else if(VKCode == VK_LEFT)
-                {
-                }
-                else if(VKCode == VK_DOWN)
-                {
-                }
-                else if(VKCode == VK_RIGHT)
-                {
-                }
-                else if(VKCode == VK_ESCAPE)
-                {
-                    OutputDebugStringA("ESCAPE: ");
-                    if(IsDown)
-                    {
-                        OutputDebugStringA("IsDown ");
-                    }
-                    if(WasDown)
-                    {
-                        OutputDebugStringA("WasDown");
-                    }
-                    OutputDebugStringA("\n");
-                }
-                else if(VKCode == VK_SPACE)
-                {
-                }
-            }
-
-            bool32 AltKeyWasDown = (LParam & (1 << 29));
-            if((VKCode == VK_F4) && AltKeyWasDown)
-            {
-                GlobalRunning = false;
-            }
-        } break;
-        
+ 
         case WM_PAINT:
         {
             PAINTSTRUCT Paint;
@@ -507,6 +442,13 @@ Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD By
 }
 
 internal void
+Win32ProcessKeyboardMessage(game_button_state *NewState, bool32 IsDown)
+{    
+    NewState->EndedDown = IsDown;
+    NewState->HalfTransitionCount +=1;
+}
+
+internal void
 Win32ProcessXInputDigitalButton(DWORD XInputButtonState, 
                                 game_button_state *OldState,
                                 DWORD ButtonBit,
@@ -562,8 +504,6 @@ WinMain(HINSTANCE Instance,
             HDC DeviceContext = GetDC(Window);
 
             // NOTE(casey): Graphics test
-            int XOffset = 0;
-            int YOffset = 0;
 
             win32_sound_output SoundOutput = {};
 
@@ -590,7 +530,7 @@ WinMain(HINSTANCE Instance,
 #endif
             game_memory GameMemory = {};
             GameMemory.PermanentStorageSize = Megabytes(64);
-            GameMemory.TransientStorageSize = Gigabytes(4);
+            GameMemory.TransientStorageSize = Gigabytes(1);
             uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
             GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, (size_t)TotalSize,
                                                         MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
@@ -608,6 +548,11 @@ WinMain(HINSTANCE Instance,
                 while(GlobalRunning)
                 {
                     MSG Message;
+                    
+                    game_controller_input *KeyboardController = &NewInput->Controllers[0];
+                    game_controller_input ZeroController = {};
+                    *KeyboardController = ZeroController;
+
 
                     while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
                     {
@@ -615,13 +560,81 @@ WinMain(HINSTANCE Instance,
                         {
                             GlobalRunning = false;
                         }
+                        LPARAM LParam = Message.lParam;
+                        WPARAM WParam = Message.wParam;
+                        switch(Message.message)
                         
-                        TranslateMessage(&Message);
-                        DispatchMessageA(&Message);
-                    }
+                        {   
+                            case WM_SYSKEYDOWN:
+                            case WM_SYSKEYUP:
+                            case WM_KEYDOWN:
+                            case WM_KEYUP:
+                            {
+                                Assert("Keyboard input")
+                                uint32 VKCode = (uint32)Message.wParam;
+                                bool32 WasDown = ((LParam & (1 << 30)) != 0);
+                                bool32 IsDown = ((LParam & (1 << 31)) == 0);
+                                if(WasDown != IsDown)
+                                {
+                                    if(VKCode == 'W')
+                                    {
+                                    }
+                                    else if(VKCode == 'A')
+                                    {
+                                    }
+                                    else if(VKCode == 'S')
+                                    {
+                                    }
+                                    else if(VKCode == 'D')
+                                    {
+                                    }
+                                    else if(VKCode == 'Q')
+                                    {   Win32ProcessKeyboardMessage(&KeyboardController->LeftShoulder, IsDown);
+                                    }
+                                    else if(VKCode == 'E')
+                                    {   Win32ProcessKeyboardMessage(&KeyboardController->RightShoulder, IsDown); 
+                                    }
+                                    else if(VKCode == VK_UP)
+                                    {
+                                        Win32ProcessKeyboardMessage(&KeyboardController->Up, IsDown);
+                                    }
+                                    else if(VKCode == VK_LEFT)
+                                    {Win32ProcessKeyboardMessage(&KeyboardController->Left,  IsDown);
+                                    }
+                                    else if(VKCode == VK_DOWN)
+                                    {Win32ProcessKeyboardMessage(&KeyboardController->Down,  IsDown);
+                                    }
+                                    else if(VKCode == VK_RIGHT)
+                                    {Win32ProcessKeyboardMessage(&KeyboardController->Right,  IsDown);
+                                    } 
+                                    else if(VKCode == VK_ESCAPE)
+                                    {
+                                        GlobalRunning = false; 
+                                    }
+                                    else if(VKCode == VK_SPACE)
+                                    {
+                                    }
+                                }
+
+                                bool32 AltKeyWasDown = (LParam & (1 << 29));
+                                if((VKCode == VK_F4) && AltKeyWasDown)
+                                {
+                                    GlobalRunning = false;
+                                }
+                                } break;
+                            
+                            
+                                default:
+                                {   
+                                    TranslateMessage(&Message);
+                                    DispatchMessageA(&Message);
+                                } break;
+                        
+                            }
+                        }
 
                     // TODO(casey): Should we poll this more frequently
-                    int MaxControllerCount = XUSER_MAX_COUNT;
+                    DWORD MaxControllerCount = XUSER_MAX_COUNT;
                     if(MaxControllerCount > ArrayCount(NewInput->Controllers))
                     {
                         MaxControllerCount = ArrayCount(NewInput->Controllers);
@@ -644,8 +657,8 @@ WinMain(HINSTANCE Instance,
                             bool32 Down = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
                             bool32 Left = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
                             bool32 Right = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-                            int16 StickX = (real32) Pad->sThumbLX / 32767;
-                            int16 StickY = (real32)Pad->sThumbLY / 32767;
+                            real32 StickX = (real32) Pad->sThumbLX / 32767;
+                            real32 StickY = (real32)Pad->sThumbLY / 32767;
                             real32 X;
                             if(Pad->sThumbLX < 0)
                             {
@@ -747,8 +760,8 @@ WinMain(HINSTANCE Instance,
                     // option _alloca(4800*2*sizeof(int16));? to get running; adds memory to stack 
 
                     game_sound_output_buffer SoundBuffer ={};
-                    SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
-                    SoundBuffer.SampleCount = BytesToWrite/SoundOutput.BytesPerSample;
+                    SoundBuffer.SamplesPerSecond = (int16) SoundOutput.SamplesPerSecond;
+                    SoundBuffer.SampleCount = (int16)(BytesToWrite/SoundOutput.BytesPerSample);
                     SoundBuffer.Samples = Samples;    
 
                     game_offscreen_buffer Buffer = {};
