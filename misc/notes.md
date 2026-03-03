@@ -33,6 +33,32 @@ Winmain:
     -> write to the sound buffer, and blit to the rgb buffer
 -> draw!
 
+### 2026-03-03: day 18 enforcing a video frame rate
+we are going to try to frame-lock our game to the refresh rate (or multiple of it) to your monitor. 
+he has a good i think point about refreshing adaptively. it becomes very hard for you to do computations, since you do not know exactly when the frame is going to be displayed; otherwise you don't know what updates you should make. we want to then always know when the flip of the monitor is going to happen. 
+
+audio: we would love to know what the audio is going to be every frame. the problem is what if we miss. then we will have an audioskip. we have two choices
+: never miss a frame! 
+: do some way of managing missing:
+-- overwrite next frame
+-- frame of lag
+-- guard thread (force flush if we hit something)
+Casey thinks that in general he doesn't really know which one he can presume. He really likes option 1, this framerate will always hit. This means that you just always hit it, you don't concern yourself with anything else (the user is being reasonable and not playing seven games at a time), so he's tempted to try to force always hitting this frame rate. 
+
+But what do we do with multiple monitors? enum the monitors? he is going to try doing the direct draw version...sadly. would be nice if there were an easier way of getting back from the monitor refresh rate. 
+
+### 2026-03-02: day 17 unified keyboard and keypad input
+
+we are processing some thigns inside the win32windowcallback. 
+But keyboard messages actually tend to not trigger this callback, and we can catch them in the Message.message. we can then do processing faster, choose to do them functionally, in a single win32processpendignmessages() function. 
+
+functional programming vs non-functional
+a functional program does not modify anything other than the stuff that was passed and that it returns. they aren't pointers, references, etc. the yare getting in values which themselves are not writeable memory. it returns soemthing that we can then do. the understanding of the functions gets a lot more complex when we have side-effects, which actually is a lot of c-style programming...if you are passing pointers around for example. there are so many things that you cannot do if you stick to pure functional. BUT if you are in the state where you can do things that are functional without doing something bad, this is usually a better way of doing things. 
+
+so the reason why we do the keyboard stuff this way is that if we are going to just do the keyboard stuff inside win32mainwindowcallback, we cannot control the inputs. if we pull it out, we can control the inputs and outputs, it is more functional. 
+
+now we're onto the dead-zone processing. we normally have a deadzone that is very very large, almost 25 % of the range. 
+
 ### 2026-02-27: day 16 compiler switches to do windows and other levels
 we have no warnings in our existing compilation
 cl /Zi /Od ..\handmade\code\win32_handmade.cpp user32.lib gdi32.lib

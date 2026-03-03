@@ -1,6 +1,11 @@
-// win32_handmade.h
-//also include win32_handmade.cpp for the definitions
-#include "windows.h"
+#if !defined(WIN32_HANDMADE_H)
+/* ========================================================================
+   $File: $
+   $Date: $
+   $Revision: $
+   $Creator: Casey Muratori $
+   $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
+   ======================================================================== */
 
 struct win32_offscreen_buffer
 {
@@ -22,10 +27,11 @@ struct win32_sound_output
 {
     int SamplesPerSecond;
     uint32 RunningSampleIndex;
-    int WavePeriod;
     int BytesPerSample;
     int SecondaryBufferSize;
     real32 tSine;
     int LatencySampleCount;
 };
- 
+
+#define WIN32_HANDMADE_H
+#endif

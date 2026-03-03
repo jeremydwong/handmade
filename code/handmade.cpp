@@ -2,27 +2,19 @@
    $File: $
    $Date: $
    $Revision: $
-   $Creator: JDW (via CM) $
+   $Creator: Casey Muratori $
    $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
    ======================================================================== */
 
 #include "handmade.h"
-#include <math.h>
-
-inline uint32
-SafeTruncateInt64(uint64 value)
-{
-  Assert(Value <=0xFFFFFFFF);
-  uint32 Result = (uint32) value;
-  return Result;
-}
 
 internal void
-GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz) 
+GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz)
 {
     local_persist real32 tSine;
     int16 ToneVolume = 3000;
     int WavePeriod = SoundBuffer->SamplesPerSecond/ToneHz;
+
     int16 *SampleOut = SoundBuffer->Samples;
     for(int SampleIndex = 0;
         SampleIndex < SoundBuffer->SampleCount;
@@ -30,14 +22,14 @@ GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz)
     {
         // TODO(casey): Draw this out for people
         real32 SineValue = sinf(tSine);
-        int16 SampleValue = (int16)(SineValue *ToneVolume);
+        int16 SampleValue = (int16)(SineValue * ToneVolume);
         *SampleOut++ = SampleValue;
         *SampleOut++ = SampleValue;
 
         tSine += 2.0f*Pi32*1.0f/(real32)WavePeriod;
-        
     }
 }
+
 internal void
 RenderWeirdGradient(game_offscreen_buffer *Buffer, int BlueOffset, int GreenOffset)
 {
@@ -53,8 +45,8 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer, int BlueOffset, int GreenOffs
             X < Buffer->Width;
             ++X)
         {
-            uint8 Blue = (uint8)((X + BlueOffset) & 0xFF);
-            uint8 Green = (uint8)((Y + GreenOffset) & 0xFF);
+            uint8 Blue = (uint8)(X + BlueOffset);
+            uint8 Green = (uint8)(Y + GreenOffset);
 
             *Pixel++ = ((Green << 8) | Blue);
         }
@@ -64,52 +56,65 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer, int BlueOffset, int GreenOffs
 }
 
 internal void
-GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer)
+GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer,
+                    game_sound_output_buffer *SoundBuffer)
 {
+    Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) ==
+           (ArrayCount(Input->Controllers[0].Buttons)));
     Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
     
     game_state *GameState = (game_state *)Memory->PermanentStorage;
     if(!Memory->IsInitialized)
     {
-        char *Filename = "test.bmp";
-	void *BitmapMemory = DEBUGPlatformReadEntireFile(Filename);
-	if(BitmapMemory)
-	{
-	  
-	}
-        // TODO(casey): Need to zero this properly
+        char *Filename = __FILE__;
+        
+        debug_read_file_result File = DEBUGPlatformReadEntireFile(Filename);
+        if(File.Contents)
+        {
+            DEBUGPlatformWriteEntireFile("test.out", File.ContentsSize, File.Contents);
+            DEBUGPlatformFreeFileMemory(File.Contents);
+        }
+       
         GameState->ToneHz = 256;
-        GameState->GreenOffset = 0;
-        GameState->BlueOffset = 0;
 
-        //todo(jer): platform layer later? not sure.
+        // TODO(casey): This may be more appropriate to do in the platform layer
         Memory->IsInitialized = true;
     }
 
-    game_controller_input *Input0 = &Input->Controllers[0];
-    if(Input0->IsAnalog)
+    for(int ControllerIndex = 0;
+        ControllerIndex < ArrayCount(Input->Controllers);
+        ++ControllerIndex)
     {
-        //todo(jer): analog input tuning
-        GameState->ToneHz = 256 + (int)(128.0f*Input0->EndY);
-        GameState->BlueOffset +=(int)(4.0f*(Input0->EndX));
-    } else
-    {
+        game_controller_input *Controller = GetController(Input, ControllerIndex);
+        if(Controller->IsAnalog)
+        {
+            // NOTE(casey): Use analog movement tuning
+            GameState->BlueOffset += (int)(4.0f*Controller->StickAverageX);
+            GameState->ToneHz = 256 + (int)(128.0f*Controller->StickAverageY);
+        }
+        else
+        {
+            // NOTE(casey): Use digital movement tuning
+            if(Controller->MoveLeft.EndedDown)
+            {
+                GameState->BlueOffset -= 1;
+            }
+            
+            if(Controller->MoveRight.EndedDown)
+            {
+                GameState->BlueOffset += 1;
+            }
+        }
 
-    }    
-    //If Input.AButtonHalfTransitionCount
-    //If Input>AButtonEndedDown
-    if(Input0->Down.EndedDown)
-    {
-        GameState->GreenOffset += 1;
+        // Input.AButtonEndedDown;
+        // Input.AButtonHalfTransitionCount;
+        if(Controller->ActionDown.EndedDown)
+        {
+            GameState->GreenOffset += 1;
+        }
     }
-    if(Input0->Up.EndedDown)
-    {
-        GameState->GreenOffset += -1;
-    }
-
-   
-
+    
     // TODO(casey): Allow sample offsets here for more robust platform options
-    GameOutputSound(SoundBuffer, GameState->ToneHz); //16bit interleaved stereo buffer
+    GameOutputSound(SoundBuffer, GameState->ToneHz);
     RenderWeirdGradient(Buffer, GameState->BlueOffset, GameState->GreenOffset);
 }
