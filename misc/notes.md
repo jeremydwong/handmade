@@ -1,4 +1,5 @@
 #notes
+emacs: 
 
 ## Main Casey ideas:
 
@@ -32,6 +33,14 @@ Winmain:
 ->call gameUpdateandrender (draw and sound)
     -> write to the sound buffer, and blit to the rgb buffer
 -> draw!
+
+
+### 2026-03-10 day 19 improving audio sync, overview of the code
+interesting to watch debugging. 
+very good at putting a debug breakpoint in and checking for errors. 
+had an x value that was producting massively-wrong x values. found out that he wasn't initializing his vector of stored frames properly. 
+i'm actually not even sure if what is happening is we are drawing all of the most recent X things on every draw? Yes, and in fact that is why the bug existed the way that it did. if he was only drawing the ones that he'd stored then he would not have had that bug i guess. 
+he goes very fast, impressive. would be great to be able to jump around like that in the files. i think it's very powerful. gotta get good at a text editor! at least for the next few years haha. 
 
 ### 2026-03-03: day 18 enforcing a video frame rate
 we are going to try to frame-lock our game to the refresh rate (or multiple of it) to your monitor. 
