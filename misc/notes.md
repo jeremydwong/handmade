@@ -35,6 +35,11 @@ Winmain:
 -> draw!
 
 
+### 2026-03-11 day 20 debugging the audio sync
+long-ass episode, probably want to watch most of it but it's hard to get as good as him at jumping around the code. 
+
+
+
 ### 2026-03-10 day 19 improving audio sync, overview of the code
 interesting to watch debugging. 
 very good at putting a debug breakpoint in and checking for errors. 

@@ -712,11 +712,6 @@ WinMain(HINSTANCE Instance,
 
   // TODO(casey): How do we reliably query on this on Windows?
     
-  // TODO(casey): Let's think about running non-frame-quantized for audio latency...
-  // TODO(casey): Let's use the write cursor delta from the play cursor to adjust
-  // the target audio latency.
-    
-#define FramesOfAudioLatency 3
 #define MonitorRefreshHz 60
 #define GameUpdateHz (MonitorRefreshHz / 2)
   real32 TargetSecondsPerFrame = 1.0f / (real32)GameUpdateHz;
@@ -749,26 +744,17 @@ WinMain(HINSTANCE Instance,
 	  SoundOutput.SamplesPerSecond = 48000;
 	  SoundOutput.BytesPerSample = sizeof(int16)*2;
 	  SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond*SoundOutput.BytesPerSample;
-	  SoundOutput.LatencySampleCount = FramesOfAudioLatency*(SoundOutput.SamplesPerSecond / GameUpdateHz);
+	  SoundOutput.LatencySampleCount = (SoundOutput.SamplesPerSecond / GameUpdateHz);
 	  Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
 	  Win32ClearBuffer(&SoundOutput);
 	  GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
 	  GlobalRunning = true;
 
-#if 0
-	  // NOTE(casey): This tests the PlayCursor/WriteCursor update frequency
-	  // On the Handmade Hero machine, it was 480 samples.
+#if HANDMADEINTERNAL
 	  while(GlobalRunning)
             {
-	      DWORD PlayCursor;
-	      DWORD WriteCursor;
-	      GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor);
-
-	      char TextBuffer[256];
-	      _snprintf_s(TextBuffer, sizeof(TextBuffer),
-			  "PC:%u WC:%u\n", PlayCursor, WriteCursor);
-	      OutputDebugStringA(TextBuffer);
+	      
             }
 #endif
             
@@ -806,7 +792,10 @@ WinMain(HINSTANCE Instance,
 	      win32_debug_time_marker DebugTimeMarkers[GameUpdateHz / 2] = {0};
 
 	      DWORD LastPlayCursor = 0;
+	      DWORD LastWriteCursor = 0;
 	      bool32 SoundIsValid = false;
+	      DWORD AudioLatencyBytes = 0;
+	      real32 AudioLatencySeconds = 0;
                 
 	      uint64 LastCycleCount = __rdtsc();
 	      while(GlobalRunning)
@@ -984,11 +973,19 @@ WinMain(HINSTANCE Instance,
 		      DWORD PlayCursor;
 		      DWORD WriteCursor;
 		      GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor);
+
+	      	      DWORD UnwrappedWriteCursor = WriteCursor;
+		      if(UnwrappedWriteCursor < PlayCursor)
+		      {
+			UnwrappedWriteCursor = UnwrappedWriteCursor + SoundOutput.SecondaryBufferSize; // our audio delta. circular buffer.
+		      }
+		      AudioLatencyBytes = UnwrappedWriteCursor - PlayCursor;
+		      AudioLatencySeconds = 
+			(( AudioLatencyBytes / (real32) SoundOutput.BytesPerSample) / (real32) SoundOutput.SamplesPerSecond);
+
 		      char TextBuffer[256];
 		      _snprintf_s(TextBuffer, sizeof(TextBuffer),
-				  "LPC:%u BTL:%u TC:%u BTW:%u - PC:%u WC:%u\n",
-				  LastPlayCursor, ByteToLock, TargetCursor, BytesToWrite,
-				  PlayCursor, WriteCursor);
+				  "LPC:%u BTL:%u TC:%u BTW:%u - PC:%u WC:%u ALB: %u DELTA: (%fs)\n", LastPlayCursor, ByteToLock, TargetCursor, BytesToWrite, PlayCursor, WriteCursor, AudioLatencyBytes, AudioLatencySeconds);
 		      OutputDebugStringA(TextBuffer);
 #endif   
 		      Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
@@ -1013,7 +1010,12 @@ WinMain(HINSTANCE Instance,
                         
 		      real32 TestSecondsElapsedForFrame = Win32GetSecondsElapsed(LastCounter,
 										 Win32GetWallClock());
-		      Assert(TestSecondsElapsedForFrame < TargetSecondsPerFrame);
+		      
+		      if (TestSecondsElapsedForFrame < TargetSecondsPerFrame)
+		      {
+			//missed frame sleep
+		      }
+
                         
 		      while(SecondsElapsedForFrame < TargetSecondsPerFrame)
                         {                            
@@ -1059,8 +1061,9 @@ WinMain(HINSTANCE Instance,
 #if HANDMADE_INTERNAL
 		  // NOTE(casey): This is debug code
 		  {
+		    Assert(DebugTimeMarkerIndex < ArrayCount(DebugTimeMarkers));
 		    win32_debug_time_marker *Marker = &DebugTimeMarkers[DebugTimeMarkerIndex++];
-		    if(DebugTimeMarkerIndex > ArrayCount(DebugTimeMarkers))
+		    if(DebugTimeMarkerIndex >=  ArrayCount(DebugTimeMarkers))
 		      {
 			DebugTimeMarkerIndex = 0;
 		      }
