@@ -1,0 +1,19 @@
+# handmade hero
+
+Following along with Casey Muratori's handmade series. 
+
+**Status:** Active: moving through the first n days, understanding some of his style and design choices. 
+
+### Acknowledgements
+
+
+### Goals
+Casey's philosophy includes but is not limited to:
+
+- performance-oriented memory management
+- simple design
+- avoiding build complexity (unity)
+- avoiding poor performance associated with deallocation
+- live design / extreme design
+
+---
