@@ -1,0 +1,18 @@
+# MSVC build artifacts
+*.obj
+*.pdb
+*.exe
+*.ilk
+*.exp
+*.lib
+*.map
+*.res
+
+# Emacs autosave / lock / backup
+*~
+\#*\#
+.\#*
+
+# Casey's build/test artifacts
+test.out
+build/

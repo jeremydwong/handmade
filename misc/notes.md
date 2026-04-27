@@ -34,11 +34,17 @@ Winmain:
     -> write to the sound buffer, and blit to the rgb buffer
 -> draw!
 
+### 2026-04-23 day 21
 
-### 2026-03-11 day 20 debugging the audio sync
+
+### 2026-03-11 day 20 debugging the audio sync (prev ended 48.)
 long-ass episode, probably want to watch most of it but it's hard to get as good as him at jumping around the code. 
 
+lots of extra time spent trying to understand what should be done with the audio. major point is that we want to a write cursor that is before the next frame flip so that we are all good to do and our sound is going to match with our planned frame. but this may not actually happen. so, if we are good, we set one write-target, if we are bad, we have to add a safety. 
 
+casey continued to modify his sound output debug to plot more things. show us the outputplaycursor, outputwritecursor, outputlocation, outputbytecount, along with what was already being displayed, the fliplaycursor and flipwritecursor. this is added to the debug_time_marker struct which is keeping track of all of this audio stuff and displaying it live for us on top of the weird gradient. 
+
+he reminds you that asserts save you time. any time you assert what should be true, you catch bugs. ! i will try to include this in my coding. 
 
 ### 2026-03-10 day 19 improving audio sync, overview of the code
 interesting to watch debugging. 

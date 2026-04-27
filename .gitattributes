@@ -1,0 +1,18 @@
+* text=auto
+
+# Always LF for shell scripts (in case anyone runs this on WSL/Linux)
+*.sh text eol=lf
+
+# Windows-specific files keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files — never touch
+*.png binary
+*.jpg binary
+*.bmp binary
+*.wav binary
+*.obj binary
+*.pdb binary
+*.exe binary
+*.lib binary
